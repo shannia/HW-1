@@ -1,15 +1,17 @@
 ---
 title: "MATH 216 Homework 1"
-author: "WRITE YOUR NAME HERE"
+author: "Shannia Fu"
 output:
   html_document:
-    toc: true
-    toc_float: true
-    collapsed: false
-    smooth_scroll: false
+    collapsed: no
+    smooth_scroll: no
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
 ---
 
-```{r, echo=FALSE, message=FALSE, cache=TRUE}
+```{r, echo=FALSE, message=FALSE}
 library(ggplot2)
 library(dplyr)
 # For read_csv() command, which is an improved version of base R's read.csv()
@@ -34,10 +36,10 @@ states <- read_csv("data/states.csv")
 
 Please indicate
 
-* Who you collaborated with:
-* Roughly how much time you spent on this HW so far:
-* The URL of the RPubs published URL [here](https://www.nhl.com/).
-* What gave you the most trouble:
+* Who you collaborated with: Brenda Li
+* Roughly how much time you spent on this HW so far: 2.5 hours
+* The URL of the RPubs published URL [here](http://rpubs.com/shannia/hw1).
+* What gave you the most trouble: #3
 * Any comments you have:
 
 
@@ -51,27 +53,64 @@ Plot a "time series" of the proportion of flights that were delayed by > 30 minu
 * the x-axis should be some notion of time
 * the y-axis should be the proportion.
 
+
 Using this plot, indicate describe the
 [seasonality](https://en.wikipedia.org/wiki/Seasonality) of when delays over 30
 minutes tend to occur.
 
+
+
+
 ```{r, echo=FALSE, message=FALSE, fig.width=12, fig.height=6}
+all_flights <- flights %>%
+  group_by(date) %>% 
+  tally() %>% 
+  rename(total_flights_in_day = n)
+#all_flights
 
+delayed_all_flights <- flights %>% 
+  group_by(date) %>% 
+  filter(dep_delay>30) %>% 
+  tally() %>% 
+  rename(total_delay_in_day = n)
+#delayed_all_flights
+
+proportions_delay <- left_join(delayed_all_flights, all_flights, by="date") %>% 
+  mutate(prop = round(total_delay_in_day/total_flights_in_day,3))
+#proportions_delay
+
+flight_time_series <- ggplot(data = proportions_delay, aes(x = date, y = prop)) + labs(title="Proportions Delay per day") +
+  geom_point()
+flight_time_series
 ```
-
-
-
-
+From the graph, it seems that delays typically occur more often in July-August (summer), and in December-January (winter). There's also a lower portion of delays just around October (fall).
 
 ## Question 2:
 
 Some people prefer flying on older planes.  Even though they aren't as nice,
 they tend to have more room.  Which airlines should these people favor?
 
+
 ```{r, echo=FALSE, fig.width=12, fig.height=6}
+older_planes <-
+  inner_join(flights, planes, by="plane")
+older_planes %>% 
+  filter(!is.na(year)) %>% 
+  filter(year < 1995) %>% 
+  arrange(year) %>% 
+  group_by(carrier) %>% 
+  tally() %>% 
+  arrange(desc(n))
 
+older_planes %>% 
+  filter(!is.na(year)) %>% 
+  mutate(older = year <1995) %>% 
+  group_by(carrier) %>% 
+  summarise(p=mean(older)) %>%
+  filter(p>0) %>% 
+  arrange(desc(p)) 
 ```
-
+I categorized "old planes" as planes that are from before 1995. Based on that assumption, the airline with the highest absolute number of flights on older planes (from Houston) is by far WN (Southwest), followed (not closely) by CO (Continental) and US (US Air). However, proportionally, WN comes in 6th with only 33.4% of its flights on older planes. Proportionally, then, the top 4 airlines to fly with are MQ (Envoy), AA (American Airlines), US (US Air), and DL (Delta), bearing in mind that MQ, for example, only has an absolute number of 57 flights on older planes.
 
 
 
@@ -85,10 +124,43 @@ For example, Southwest Airlines Flight 60 to Dallas consists of a single flight
 path, but since it flew 299 times in 2013, it would be counted as 299 flights.
 
 ```{r, echo=FALSE, message=FALSE, fig.width=12, fig.height=6}
+flight_airports <- inner_join(flights, airports, by=c("dest"="iata"))
+#bad code
+#southwest_bad <- flight_airports %>% 
+#  group_by(flight, state) %>% 
+#  filter(carrier == "WN") %>% 
+#  tally() %>% 
+#  arrange()
+#table(southwest_bad$state)
+
+#more bad code
+#southwest_paths <- flight_airports %>% 
+#  group_by(flight, state) %>% 
+#  filter(carrier == "WN") %>% 
+#  tally() %>% 
+#  group_by(state) %>% 
+#  select(-n) %>% 
+#  tally()
+  
+#paths
+southwest_paths <- flight_airports %>% 
+  group_by(flight, state) %>% 
+  filter(carrier == "WN") %>% 
+  tally() %>% 
+  group_by(state) %>% 
+  summarise(n=n()) %>% 
+  arrange(desc(n))
+southwest_paths
+#destinations
+southwest_destinations <- flight_airports %>% 
+  group_by(state) %>% 
+  filter(carrier == "WN") %>% 
+  tally() %>% 
+  arrange(desc(n))
+southwest_destinations
 
 ```
-
-
+Both flight paths and flights tended to fly to Texas, followed by Florida and Louisiana. In general, the frequency of flight paths and total flights follow the same order in frequency of destination.
 
 
 
@@ -99,5 +171,20 @@ carrier flies to/from Houston in the month of July.  Consider the `month()`
 function from the `lubridate` package.
 
 ```{r, echo=FALSE, message=FALSE, fig.width=12, fig.height=6}
-
+library(lubridate)
+flight_airports <- inner_join(flights, airports, by=c("dest"="iata"))
+region_flights <- inner_join(flight_airports, states, by="state")
+july_regions <- region_flights %>% 
+  filter(month(date) == 7) %>% 
+  group_by(carrier, region) %>% 
+  tally() %>% 
+  rename(total_in_region = n)
+july_carrier <- region_flights %>% 
+  filter(month(date) == 7) %>% 
+  group_by(carrier) %>% 
+  tally() %>% 
+  rename(total_in_carrier = n)
+july_total <- left_join(july_regions, july_carrier, by="carrier") %>% 
+  mutate(prop = total_in_region/total_in_carrier)
+july_total
 ```
