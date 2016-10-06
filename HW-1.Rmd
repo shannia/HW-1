@@ -2,13 +2,13 @@
 title: "MATH 216 Homework 1"
 author: "Shannia Fu"
 output:
+  pdf_document:
+    toc: yes
   html_document:
     collapsed: no
     smooth_scroll: no
     toc: yes
     toc_float: yes
-  pdf_document:
-    toc: yes
 ---
 
 ```{r, echo=FALSE, message=FALSE}
